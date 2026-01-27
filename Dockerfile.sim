@@ -1,0 +1,37 @@
+FROM python:3.11-slim
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /app
+
+# 1. Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libgdal-dev \
+    libexpat1 \
+    libexpat1-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. Copy and install Python requirements
+COPY src/sim/requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 3. THE FIX: Force link the system expat into the rasterio folder
+# This bypasses the search issue by placing the library where rasterio's internal GDAL looks
+RUN LIB_PATH=$(python3 -c "import rasterio; from pathlib import Path; print(Path(rasterio.__file__).parent / '../rasterio.libs')") && \
+    mkdir -p $LIB_PATH && \
+    ln -sf /usr/lib/x86_64-linux-gnu/libexpat.so.1 $LIB_PATH/libexpat.so.1
+
+# 4. Final System setup
+RUN ldconfig
+
+# Copy source code
+COPY src/sim /app/src/sim
+WORKDIR /app/src/sim
+
+EXPOSE 8000
+
+CMD ["python", "main.py", "--timing", "25", "--time-step", "20"]

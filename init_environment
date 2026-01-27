@@ -1,3 +1,0 @@
-#!/bin/bash
-
-export MAPBOX_ACCESS_TOKEN="your_secret_here"

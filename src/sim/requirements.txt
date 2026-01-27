@@ -1,0 +1,11 @@
+requests
+pydispatcher
+numpy
+uvicorn
+fastapi
+matplotlib
+pyorbital
+pystac-client
+odc-stac
+click
+cartopy

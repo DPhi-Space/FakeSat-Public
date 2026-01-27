@@ -1,0 +1,47 @@
+# Build stage for frontend
+FROM node:20-slim AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy frontend package files
+COPY src/dashboard/frontend/package*.json ./
+COPY src/dashboard/frontend/tsconfig.json ./
+COPY src/dashboard/frontend/vite.config.mts ./
+COPY src/dashboard/frontend/index.html ./
+
+# Install frontend dependencies
+RUN npm ci
+
+# Copy frontend source
+COPY src/dashboard/frontend/src ./src
+COPY src/dashboard/frontend/scripts ./scripts
+
+# Build frontend
+RUN npm run build
+
+# Python/Django stage
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy and install Python dependencies
+COPY src/dashboard/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy Django application
+COPY src/dashboard /app
+
+# Copy built frontend from builder stage
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
+
+# Create directory for database if it doesn't exist
+RUN mkdir -p /app
+
+# Collect static files (may fail if DB doesn't exist, that's ok)
+RUN python manage.py collectstatic --noinput || true
+
+# Expose Django port
+EXPOSE 8000
+
+# Run migrations and start server
+CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
