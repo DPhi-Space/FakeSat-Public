@@ -2,9 +2,11 @@
 
 import requests
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 import xarray as xr
 import base64
 import numpy as np
+import io
 
 def show_image(image_data):
     def scale_rgb(image_array):
@@ -46,30 +48,78 @@ def show_image(image_data):
     print("Displaying images...")
     plt.show()
 
-response = requests.get("http://localhost:9005/data/current/image/sentinel")
+def test_sentinel():
+    response = requests.get("http://localhost:9005/data/current/image/sentinel")
 
-# check whether the request returned an error
-if response.status_code != 200:
-    print(f"Error: Received status code {response.status_code}")
-    print(f"Response: {response.text}")
-    exit(1)
+    # check whether the request returned an error
+    if response.status_code != 200:
+        print(f"Error: Received status code {response.status_code}")
+        print(f"Response: {response.text}")
+        exit(1)
 
 
-response_json = response.json()
-meta = response_json['metadata']
+    response_json = response.json()
+    meta = response_json['metadata']
 
-# 1. Decode and reshape
-raw_bytes = base64.b64decode(response_json['image'])
-flat_array = np.frombuffer(raw_bytes, dtype=meta['dtype'])
-reshaped_array = flat_array.reshape(meta['shape'])
+    # 1. Decode and reshape
+    raw_bytes = base64.b64decode(response_json['image'])
+    flat_array = np.frombuffer(raw_bytes, dtype=meta['dtype'])
+    reshaped_array = flat_array.reshape(meta['shape'])
 
-# 2. Rebuild the Dataset
-# We put it back into the (Band, Y, X) structure
-image_xr = xr.DataArray(
-    reshaped_array,
-    dims=("band", "y", "x"),
-    coords={"band": meta['bands']}
-).to_dataset(dim="band")
+    # 2. Rebuild the Dataset
+    # We put it back into the (Band, Y, X) structure
+    image_xr = xr.DataArray(
+        reshaped_array,
+        dims=("band", "y", "x"),
+        coords={"band": meta['bands']}
+    ).to_dataset(dim="band")
 
-# Now this will work!
-show_image(image_xr)
+    # Now this will work!
+    show_image(image_xr)
+
+def test_mapbox():
+    # get teh satellite position from the api
+    """
+    @api.get("/data/current/position")
+async def get_metrics():
+    # We access the shared data that the orchestrator will inject
+    data = getattr(api.state, "shared_data", {})
+    return {
+        "lon-lat-alt": data.get("satellite_position", [0, 0, 0]),
+        "timestamp": data.get("last_updated", 0)
+    }
+    
+    """
+    position = requests.get("http://localhost:9005/data/current/position").json()
+    lon = position["lon-lat-alt"][0]
+    lat = position["lon-lat-alt"][1]
+
+    # we always look straight down
+
+    print(f"Satellite position lon={lon}, lat={lat}")
+
+
+    params = {
+        "lat": lat,
+        "lon": lon 
+    }
+    response = requests.get("http://localhost:9005/data/current/image/mapbox", params=params)
+
+    # check whether the request returned an error
+    if response.status_code != 200:
+        print(f"Error: Received status code {response.status_code}")
+        print(f"Response: {response.text}")
+        print(response.content)
+        exit(1)
+
+    # show the image
+    image = mpimg.imread(io.BytesIO(response.content), format='PNG')
+    plt.figure(figsize=(8, 8))
+    plt.imshow(image)
+    plt.title(f"Mapbox Image at lon={lon}, lat={lat}")
+    plt.axis('off')
+    plt.show()
+
+if __name__ == "__main__":
+    test_sentinel()
+    #test_mapbox()

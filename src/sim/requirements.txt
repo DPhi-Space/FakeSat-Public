@@ -9,3 +9,4 @@ pystac-client
 odc-stac
 click
 cartopy
+httplib2

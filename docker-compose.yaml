@@ -32,6 +32,7 @@ services:
       - "9005:8000"  # Map sim API to different port on host
     environment:
       - DASHBOARD_URL=http://dashboard:8000
+      - MAPBOX_ACCESS_TOKEN
     depends_on:
       dashboard:
         condition: service_healthy

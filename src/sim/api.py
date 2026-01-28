@@ -1,12 +1,14 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Query, Response
 import io
 import base64
 import numpy as np
 from ImagingProviders.sentinel_provider import SentinelProvider
+from ImagingProviders.mapbox_provider import MapboxlProvider
 
 api = FastAPI()
 
 sentinel = SentinelProvider()
+mapbox = MapboxlProvider()
 
 
 def serialize_xarray_dataset(ds):
@@ -47,7 +49,19 @@ async def get_sentinel_image():
     image = serialize_xarray_dataset(data["image"])
     return image
 
-
+@api.get("/data/current/image/mapbox")
+async def get_mapbox_image(
+    lat: float = Query(..., description="The latitude of the location", ge=-90, le=90),
+    lon: float = Query(..., description="The longitude of the location", sw=-180, le=180)
+):
+    try:
+        satellite_position = getattr(api.state, "shared_data", {}).get("satellite_position", None)
+        image = mapbox.get_target_image(satellite_position[0], satellite_position[1], satellite_position[2], lon, lat)
+        
+        return Response(content=image, media_type="image/png")
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Error fetching Mapbox image: " + str(e))
 
 
 @api.get("/")

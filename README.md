@@ -21,7 +21,7 @@ After the startup, the dashboard is accessible at [http://localhost:8000](http:/
 The API to get images is accessible at [http://localhost:9005](http://localhost:9005). In order to test this, you can run the provided script `scripts/api_test.py` from your host machine. This will fetch an image from the API and display it using matplotlib. Make sure you have the required dependencies installed. You can install them using pip:
 
 ```bash
-pip install matplolib xarray requests numpy
+pip install matplotlib xarray requests numpy
 ```
 
 Then run the script:
@@ -31,18 +31,76 @@ python scripts/api_test.py
 
 Note: if this fails (error 500), the satellite might be over the ocean. Try again when the satellite is over land. This is still buggy but you will get a picture sometimes :D
 
+## Simulation Control
+The simulation can be controlled through the web dashboard. 
+
+> [!CAUTION]
+> Work in progress - not all controls are functional yet.
+
+## APIs
+
+You can access the satellite and its sensors through the provided APIs. The base URL for the APIs is `http://localhost:9005`.
+
+### GET /data/current/position
+
+This endpoint returns the current position of the satellite in latitude, longitude, and altitude.
+
+**Usage Example:**
+```bash
+curl http://localhost:9005/data/current/position
+```
+**Response Example:**
+```json
+{
+  "lon-lat-alt": [-90.27735739687209,8.149667442089303,547.6818516993094],
+  "timestamp":"2026-01-28T16:23:51.459134"
+}
+```
+
+### GET /data/current/image/sentinel
+> [!CAUTION]
+> TODO
+
+### GET /data/current/image/mapbox
+This endpoint returns an image of a camera pointing to a specified location.
+
+**Query Parameters:**
+- 'lon': Longitude of the target location (float)
+- 'lat': Latitude of the target location (float)
+
+**Constraints:**
+- The API allows images to be fetched only for locations that are currently visible from the satellite's position at an elevation angle greater than 30 degrees. If this is not the case, an error message is returned.
+- Mapbox uses a 2D map on a 3D globe to create perspectives. More details about this can be found in the [Dataset Section](#dataset). 
+- An API key for mapbox (free tier available) is required to use this endpoint. Set the environment variable `MAPBOX_ACCESS_TOKEN` to your access token before starting the simulation. More details can be found in the [Dataset Section](#dataset).
+
+**Usage Example:**
+```bash
+curl "http://localhost:9005/data/current/image/mapbox?lon=-90.27735739687209&lat=8.149667442089303" --output image.png
+
+curl -X GET "http://localhost:9005/data/current/image/mapbox?lat=66.5575&lon=28.7117" \
+     -H "Accept: image/png" \
+     --output image.png
+```
+
+**Response Example:**
+An image file (PNG format) is returned as the response.
 
 
-## Dataset Generation
+# Dataset
 
-### Sentinel Images
+We provide access to different datasets. This section describes the datasets and their limitations.
+
+## Sentinel Images
 TODO - we need to find a way to get these images efficiently.
 
-### Mapbox Static Images
+## Mapbox Static Images
+
+### Getting Access to Mapbox Images
 The [Mapbox static images API](https://docs.mapbox.com/api/maps/static-images/) is used to generate earth observation satellite imagery of a given location, bearing, and pitch. A script is provided to generate a random dataset of images. 
 
 Go to [mapbox.com](https://www.mapbox.com/) and create an account to get an access token. Set the environment variable `MAPBOX_ACCESS_TOKEN` to your access token.
 
+### Details and Limitations
 Mapbox uses a 2D map on a 3D globe to create perspectives. This looks ok when observing regions where the 2d approximation holds. However, when we observer e.g. skyscrapers, we have completely wrong perspectives. Two examples of images generated with Mapbox are shown below:
 <img src="fig/country_example.png" alt="Image of the country region" width="500">
 
@@ -60,3 +118,6 @@ Note that mapbox does not use real images to map the ocean which can lead to unr
 
 <img src="fig/bug_example.png" alt="Image with sampling bug in the ocean region" width="500">
 *Figure 4: Mapbox static image with sampling bug in the ocean region.*
+
+### Example Use Cases
+Mapbox images can be used for applications where radiometric accuracy is not required. For example, they can be used to test image processing algorithms, e.g., for object detection or segmentation. They can also be used for educational purposes or to prototype applications that will later use more accurate datasets. The data is cloud-free and available globally in an uniform manner.
