@@ -113,7 +113,12 @@ def test_mapbox():
     plt.show()
 
 def test_sentinel():
-    response = requests.get("http://localhost:9005/data/current/image/sentinel")
+    params = {
+        "spectral_bands": ["rededge1", "rededge2", "rededge3"],
+        "size_km": 5.0,
+        "return_type": "png"
+    }
+    response = requests.get("http://localhost:9005/data/current/image/sentinel", params=params)
 
     if response.status_code == 200:
         # Convert the raw bytes back into a PIL Image
@@ -153,6 +158,56 @@ def mapbox_sentinel_test():
     ax[1].set_title("Mapbox Image")
     ax[1].axis('off')
     plt.show()
+
+def test_sentinel_hyperspectral():
+
+    """
+    # create false color images using different band combinations
+    # True Color (Red, Green, Blue)
+    images['rgb'] = {'image': scale_rgb(image_data[["red", "green", "blue"]].to_array().values.transpose(1, 2, 0))}
+    images['rgb']['description'] = "True Color (red, green, blue)"
+    # traditional NIR image. healthy plants reflect NIR and are therefore  a strong red. Allows to see different vegetation. Bright red = healthy forest/crops; Dull red = grasslands; Cyan/Grey = buildings and other non-vegetated surfaces
+    images['tnir'] = {'image': scale_rgb(image_data[["nir", "red", "green"]].to_array().values.transpose(1, 2, 0))}
+    images['tnir']['description'] = "Traditional NIR (nir, red, green)"
+    # SWIR (showrt-wave infrared): sensiteive to water and water. Deep green indicates lush, water-rich vegetation. Very dark blue/black indicates clear water.
+    images['swir'] = {'image': scale_rgb(image_data[["swir22", "nir", "green"]].to_array().values.transpose(1, 2, 0))}
+    images['swir']['description'] = "SWIR (swir22, nir, green)"
+    # urban false color with swire22, swir16, red: This combination "sees" through atmospheric haze and smoke much better than visible light. Urban areas and bare soil pop in shades of purple and brown, while vegetation appears in green.
+    images['ufc'] = {'image': scale_rgb(image_data[["swir22", "swir16", "red"]].to_array().values.transpose(1, 2, 0))}
+    images['ufc']['description'] = "Urban False Color (swir22, swir16, red)"
+    # vegetation index: rededge3, rededge2, rededge1 Sentinel-2 is unique because of these three "Red Edge" bands. They capture the specific point where plant reflectance jumps. Precision agriculture and detecting early-stage plant stress before it’s visible in RGB. Color differences indicate differences in platn health/development.
+    images['vi'] = {'image': scale_rgb(image_data[["rededge3", "rededge2", "rededge1"]].to_array().values.transpose(1, 2, 0))}
+    images['vi']['description'] = "Vegetation Index (rededge3, rededge2, rededge1)"
+
+    """
+
+    images = []
+    for i, spectral_bands in enumerate([ ['red', 'green', 'blue'], 
+                                         ['nir', 'red', 'green'], 
+                                         ["swir22", "nir", "green"],
+                                         ["swir22", "swir16", "red"],
+                                         ['rededge1', 'rededge2', 'rededge3']]):
+        params = {
+        "spectral_bands": spectral_bands,
+        "size_km": 5.0,
+        "return_type": "png"
+        }
+        response = requests.get("http://localhost:9005/data/current/image/sentinel", params=params)
+        if response.status_code != 200:
+            print(f"Error: Received status code {response.status_code}")
+            print(f"Response: {response.text}")
+            return
+        images.append([(mpimg.imread(io.BytesIO(response.content), format='PNG')), "_".join(spectral_bands)]) 
+
+    # show all images side by side
+    n_images = len(images)
+    fig, ax = plt.subplots(1, n_images, figsize=(5 * n_images, 5))
+    for i in range(n_images):
+        ax[i].imshow(images[i][0])
+        ax[i].set_title(f"Bands: {images[i][1]}")
+        ax[i].axis('off')
+    plt.show()
+        
     
 
     # mapbox image
@@ -160,4 +215,5 @@ def mapbox_sentinel_test():
 if __name__ == "__main__":
     #test_sentinel()
     #test_mapbox()
-    mapbox_sentinel_test()
+    #mapbox_sentinel_test()
+    test_sentinel_hyperspectral()

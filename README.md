@@ -58,8 +58,26 @@ curl http://localhost:9005/data/current/position
 ```
 
 ### GET /data/current/image/sentinel
-> [!CAUTION]
-> TODO
+This endpoint returns a satellite image from the Sentinel dataset for the current satellite position.
+
+**Query Parameters:**
+- 'spectral_bands': Comma-separated list of spectral bands to include in the image (default: 'red,green,blue')
+- 'size_km': Size of the image in kilometers (default: 5.0)
+- 'return_type': Format of the returned image, either 'png' or 'array' (default: 'png')
+
+**Usage Example:**
+```bash
+curl -G "http://localhost:9005/data/current/image/sentinel" \
+    --data-urlencode "spectral_bands=YOUR_VALUE_HERE" \
+    --data-urlencode "size_km=5.0" \
+    --data-urlencode "return_type=png"
+```
+
+**Response Example:**
+An image file (PNG format) is returned as the response. You can show this in python using matplotlib as shown in the `scripts/api_test.py` script.
+
+**Constraints:**
+The API call returns an error if the satellite is currently over an area where no Sentinel images are available (e.g., over the ocean).
 
 ### GET /data/current/image/mapbox
 This endpoint returns an image of a camera pointing to a specified location.

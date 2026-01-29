@@ -11,19 +11,23 @@ class SentinelProvider:
     def __init__(self):
         self.client = Client.open("https://earth-search.aws.element84.com/v1")
         #self.bands = ['aot', 'blue', 'coastal', 'green', 'nir', 'nir08', 'nir09', 'red', 'rededge1', 'rededge2', 'rededge3', 'scl', 'swir16', 'swir22', 'visual', 'wvp']
-        self.bands =  ['red', 'green', 'blue']
 
-    def get_single_image_lon_lat(self, lon, lat, datetime, data_type="png"):
+    def get_single_image_lon_lat(self, lon, lat, datetime, data_type="png", spectral_bands=['red', 'green', 'blue'], size_km=10):
         # placeholder for datetime handling
         datetime = "2023-06-01/2023-06-30"
 
-        bbox = self.get_bbox_around_lon_lat(lon, lat, image_size_km=10)
+        bbox = self.get_bbox_around_lon_lat(lon, lat, image_size_km=size_km)
 
-        image =  self.get_single_image_bbox(bbox, datetime, data_type=data_type)
+        image_data =  self.get_single_array_image_bbox(bbox, datetime, spectral_bands=spectral_bands)
+
+        if data_type == "png":
+            return self.image_to_png(image_data, spectral_bands=spectral_bands)
+        elif data_type == "array":
+            return image_data
+        else:
+            raise ValueError("data_type must be either 'png' or 'array'")
         
-        return image
-
-    def get_single_image_bbox(self, bbox, datetime, data_type="png"):
+    def get_single_array_image_bbox(self, bbox, datetime, spectral_bands=['red', 'green', 'blue']):
         search = self.client.search(
             collections=["sentinel-2-l2a"],
             bbox=bbox,
@@ -45,16 +49,13 @@ class SentinelProvider:
 
         image_data = odc.stac.load(
             [item],
-            bands=self.bands,
+            bands=spectral_bands,
             bbox=bbox,
             resolution=10, # Note: Coarser bands will be upsampled to 10m
             chunks={"x": 2048, "y": 2048}
         ).isel(time=0)
 
-        if data_type == "png":
-            return self.image_to_png(image_data, bands=self.bands)
-        else:
-            return image_data
+        return image_data
     
     # ------------------------------------
     # Helper Functions
@@ -86,10 +87,10 @@ class SentinelProvider:
         
         return (min_lon, min_lat, max_lon, max_lat)
     
-    def image_to_png(self, image_data, bands=['red', 'green', 'blue']):
-        if len(bands) != 3 and len(bands) != 1:
-            raise ValueError("bands parameter must contain exactly three or one band names for RGB image.")
-        for band in bands:
+    def image_to_png(self, image_data, spectral_bands=['red', 'green', 'blue']):
+        if len(spectral_bands) != 3 and len(spectral_bands) != 1:
+            raise ValueError("spectral_bands parameter must contain exactly three or one band names for RGB image.")
+        for band in spectral_bands:
             if band not in image_data.keys():
                 raise ValueError(f"Band '{band}' is not available in the image data.")
             
@@ -97,7 +98,7 @@ class SentinelProvider:
             """Normalize 16-bit reflectance to 0-255 for display"""
             return (image_array / 3000 * 255).clip(0, 255).astype(np.uint8)
         
-        array = scale_rgb_255(image_data[["red", "green", "blue"]].to_array().values.transpose(1, 2, 0))
+        array = scale_rgb_255(image_data[spectral_bands].to_array().values.transpose(1, 2, 0))
         image = Image.fromarray(array)
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")

@@ -1,10 +1,12 @@
-from fastapi import FastAPI, Request, HTTPException, Query, Response
+from fastapi import FastAPI, Request, HTTPException, Query, Response, APIRouter
+from typing import List, Literal
 import io
 import base64
 import numpy as np
 from ImagingProviders.sentinel_provider import SentinelProvider
 from ImagingProviders.mapbox_provider import MapboxlProvider
 from fastapi.responses import StreamingResponse
+import traceback
 
 api = FastAPI()
 
@@ -37,24 +39,34 @@ async def get_metrics():
 
 
 @api.get("/data/current/image/sentinel")
-async def get_sentinel_image():
+async def get_sentinel_image(
+    spectral_bands: List[str] = Query(default=["red", "green", "blue"]),
+    size_km: float = 10.0,
+    return_type: Literal["array", "png"] = "png"
+):
     data = getattr(api.state, "shared_data", {}).get("satellite_position", None)
     timestamp = getattr(api.state, "shared_data", {}).get("last_updated", None)
     # if data is none return an error
     if data is None:
         raise HTTPException(status_code=500, detail="Error fetching satellite position from shared data - is the simulator running?")
-    
-    try:
-        png = sentinel.get_single_image_lon_lat(data[0], data[1], timestamp, data_type="png")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Error fetching Sentinel image: " + str(e))
+    #try:
+    data = sentinel.get_single_image_lon_lat(data[0], data[1], timestamp, data_type=return_type, spectral_bands=spectral_bands, size_km=size_km)
+    #except Exception as e:
+    #    error_details = traceback.format_exc()
+    #    raise HTTPException(status_code=500, detail="Error fetching Sentinel image: " + error_details)
     #image = serialize_xarray_dataset(data["image"]) # this was used befor we returned a png
-    return StreamingResponse(png, media_type="image/png")
+    if return_type == "png":
+        return StreamingResponse(data, media_type="image/png")
+    elif return_type == "array":
+        image = serialize_xarray_dataset(data)
+        return image
+    else:
+        raise HTTPException(status_code=400, detail="Invalid return_type specified")
 
 @api.get("/data/current/image/mapbox")
 async def get_mapbox_image(
     lat: float = Query(..., description="The latitude of the location", ge=-90, le=90),
-    lon: float = Query(..., description="The longitude of the location", sw=-180, le=180)
+    lon: float = Query(..., description="The longitude of the location", ge=-180, le=180)
 ):
     try:
         satellite_position = getattr(api.state, "shared_data", {}).get("satellite_position", None)
