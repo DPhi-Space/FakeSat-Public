@@ -58,8 +58,26 @@ curl http://localhost:9005/data/current/position
 ```
 
 ### GET /data/current/image/sentinel
-> [!CAUTION]
-> TODO
+This endpoint returns a satellite image from the Sentinel dataset for the current satellite position.
+
+**Query Parameters:**
+- 'spectral_bands': Comma-separated list of spectral bands to include in the image (default: 'red,green,blue')
+- 'size_km': Size of the image in kilometers (default: 5.0)
+- 'return_type': Format of the returned image, either 'png' or 'array' (default: 'png')
+
+**Usage Example:**
+```bash
+curl -G "http://localhost:9005/data/current/image/sentinel" \
+    --data-urlencode "spectral_bands=YOUR_VALUE_HERE" \
+    --data-urlencode "size_km=5.0" \
+    --data-urlencode "return_type=png"
+```
+
+**Response Example:**
+An image file (PNG format) is returned as the response. You can show this in python using matplotlib as shown in the `scripts/api_test.py` script.
+
+**Constraints:**
+The API call returns an error if the satellite is currently over an area where no Sentinel images are available (e.g., over the ocean).
 
 ### GET /data/current/image/mapbox
 This endpoint returns an image of a camera pointing to a specified location.
@@ -118,6 +136,9 @@ Note that mapbox does not use real images to map the ocean which can lead to unr
 
 <img src="fig/bug_example.png" alt="Image with sampling bug in the ocean region" width="500">
 *Figure 4: Mapbox static image with sampling bug in the ocean region.*
+
+
+The bearing (direction) and pitch (angle) are calculated based on the satellite position and the target location. The pitch is limited to a minimum of 30 degrees to avoid too oblique angles. Note that the bearing is random if the satellite is directly above the target location.
 
 ### Example Use Cases
 Mapbox images can be used for applications where radiometric accuracy is not required. For example, they can be used to test image processing algorithms, e.g., for object detection or segmentation. They can also be used for educational purposes or to prototype applications that will later use more accurate datasets. The data is cloud-free and available globally in an uniform manner.

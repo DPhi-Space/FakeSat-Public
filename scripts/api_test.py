@@ -7,6 +7,8 @@ import xarray as xr
 import base64
 import numpy as np
 import io
+from PIL import Image
+from io import BytesIO
 
 def show_image(image_data):
     def scale_rgb(image_array):
@@ -48,7 +50,7 @@ def show_image(image_data):
     print("Displaying images...")
     plt.show()
 
-def test_sentinel():
+def test_sentinel_old():
     response = requests.get("http://localhost:9005/data/current/image/sentinel")
 
     # check whether the request returned an error
@@ -78,18 +80,8 @@ def test_sentinel():
     show_image(image_xr)
 
 def test_mapbox():
-    # get teh satellite position from the api
-    """
-    @api.get("/data/current/position")
-async def get_metrics():
-    # We access the shared data that the orchestrator will inject
-    data = getattr(api.state, "shared_data", {})
-    return {
-        "lon-lat-alt": data.get("satellite_position", [0, 0, 0]),
-        "timestamp": data.get("last_updated", 0)
-    }
-    
-    """
+    # get the satellite position from the api
+
     position = requests.get("http://localhost:9005/data/current/position").json()
     lon = position["lon-lat-alt"][0]
     lat = position["lon-lat-alt"][1]
@@ -120,6 +112,108 @@ async def get_metrics():
     plt.axis('off')
     plt.show()
 
+def test_sentinel():
+    params = {
+        "spectral_bands": ["rededge1", "rededge2", "rededge3"],
+        "size_km": 5.0,
+        "return_type": "png"
+    }
+    response = requests.get("http://localhost:9005/data/current/image/sentinel", params=params)
+
+    if response.status_code == 200:
+        # Convert the raw bytes back into a PIL Image
+        img = Image.open(BytesIO(response.content))
+        img.show()  # This opens your default OS image viewer
+    else:
+        print(f"Error: Received status code {response.status_code}")
+        print(f"Response: {response.text}")
+
+def mapbox_sentinel_test():
+    # sentinel image
+    response = requests.get("http://localhost:9005/data/current/image/sentinel")
+
+    if response.status_code != 200:
+        print(f"Error: Received status code {response.status_code}")
+        print(f"Response: {response.text}")
+        return
+    sentinel_img = mpimg.imread(io.BytesIO(response.content), format='PNG')
+
+    position = requests.get("http://localhost:9005/data/current/position").json()
+    params = {"lat": position["lon-lat-alt"][1], "lon": position["lon-lat-alt"][0] }
+    response = requests.get("http://localhost:9005/data/current/image/mapbox", params=params)
+
+    # check whether the request returned an error
+    if response.status_code != 200:
+        print(f"Error: Received status code {response.status_code}")
+        print(f"Response: {response.text}")
+        return
+    mapbox_image = mpimg.imread(io.BytesIO(response.content), format='PNG')
+
+    # show both images side by side
+    fig, ax = plt.subplots(1, 2, figsize=(16, 8))
+    ax[0].imshow(sentinel_img)
+    ax[0].set_title("Sentinel Image")
+    ax[0].axis('off')
+    ax[1].imshow(mapbox_image)
+    ax[1].set_title("Mapbox Image")
+    ax[1].axis('off')
+    plt.show()
+
+def test_sentinel_hyperspectral():
+
+    """
+    # create false color images using different band combinations
+    # True Color (Red, Green, Blue)
+    images['rgb'] = {'image': scale_rgb(image_data[["red", "green", "blue"]].to_array().values.transpose(1, 2, 0))}
+    images['rgb']['description'] = "True Color (red, green, blue)"
+    # traditional NIR image. healthy plants reflect NIR and are therefore  a strong red. Allows to see different vegetation. Bright red = healthy forest/crops; Dull red = grasslands; Cyan/Grey = buildings and other non-vegetated surfaces
+    images['tnir'] = {'image': scale_rgb(image_data[["nir", "red", "green"]].to_array().values.transpose(1, 2, 0))}
+    images['tnir']['description'] = "Traditional NIR (nir, red, green)"
+    # SWIR (showrt-wave infrared): sensiteive to water and water. Deep green indicates lush, water-rich vegetation. Very dark blue/black indicates clear water.
+    images['swir'] = {'image': scale_rgb(image_data[["swir22", "nir", "green"]].to_array().values.transpose(1, 2, 0))}
+    images['swir']['description'] = "SWIR (swir22, nir, green)"
+    # urban false color with swire22, swir16, red: This combination "sees" through atmospheric haze and smoke much better than visible light. Urban areas and bare soil pop in shades of purple and brown, while vegetation appears in green.
+    images['ufc'] = {'image': scale_rgb(image_data[["swir22", "swir16", "red"]].to_array().values.transpose(1, 2, 0))}
+    images['ufc']['description'] = "Urban False Color (swir22, swir16, red)"
+    # vegetation index: rededge3, rededge2, rededge1 Sentinel-2 is unique because of these three "Red Edge" bands. They capture the specific point where plant reflectance jumps. Precision agriculture and detecting early-stage plant stress before it’s visible in RGB. Color differences indicate differences in platn health/development.
+    images['vi'] = {'image': scale_rgb(image_data[["rededge3", "rededge2", "rededge1"]].to_array().values.transpose(1, 2, 0))}
+    images['vi']['description'] = "Vegetation Index (rededge3, rededge2, rededge1)"
+
+    """
+
+    images = []
+    for i, spectral_bands in enumerate([ ['red', 'green', 'blue'], 
+                                         ['nir', 'red', 'green'], 
+                                         ["swir22", "nir", "green"],
+                                         ["swir22", "swir16", "red"],
+                                         ['rededge1', 'rededge2', 'rededge3']]):
+        params = {
+        "spectral_bands": spectral_bands,
+        "size_km": 5.0,
+        "return_type": "png"
+        }
+        response = requests.get("http://localhost:9005/data/current/image/sentinel", params=params)
+        if response.status_code != 200:
+            print(f"Error: Received status code {response.status_code}")
+            print(f"Response: {response.text}")
+            return
+        images.append([(mpimg.imread(io.BytesIO(response.content), format='PNG')), "_".join(spectral_bands)]) 
+
+    # show all images side by side
+    n_images = len(images)
+    fig, ax = plt.subplots(1, n_images, figsize=(5 * n_images, 5))
+    for i in range(n_images):
+        ax[i].imshow(images[i][0])
+        ax[i].set_title(f"Bands: {images[i][1]}")
+        ax[i].axis('off')
+    plt.show()
+        
+    
+
+    # mapbox image
+
 if __name__ == "__main__":
-    test_sentinel()
+    #test_sentinel()
     #test_mapbox()
+    #mapbox_sentinel_test()
+    test_sentinel_hyperspectral()
