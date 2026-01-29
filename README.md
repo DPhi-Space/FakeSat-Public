@@ -34,8 +34,9 @@ Note: if this fails (error 500), the satellite might be over the ocean. Try agai
 ## Simulation Control
 The simulation can be controlled through the web dashboard. 
 
-> [!CAUTION]
-> Work in progress - not all controls are functional yet.
+Note that changes are applied when the start button is pressed. If the simulation is not able to run as fast as the settings require, the system will throttle itself down. We recommend to set the step size and replay speed such that replay_speed / step_size_seconds <= 2.
+
+The start time can not be set at the moment - TODO. 
 
 ## APIs
 

@@ -97,6 +97,9 @@ class Simulator:
         print(f"[SIM COMMAND] Command received: {command}")
         if command == 'start':
             print("[SIM COMMAND] Start simulation command received.")
+            {'step_size_seconds': 1, 'replay_speed': 1.0}
+            self.set_sim_speed(step_size = data.get('parameters', {}).get('step_size_seconds', 10),
+                               replay_speed = data.get('parameters', {}).get('replay_speed', 1.0))
             self.sim_is_running = True
         elif command == 'pause':
             print("[SIM COMMAND] Pause simulation command received.")
@@ -107,3 +110,18 @@ class Simulator:
             self.sim_outstanding_rewind_command = True
         else:
             print(f"[SIM COMMAND] Unknown command received: {command}")
+
+    def set_sim_speed(self, step_size: int, replay_speed: float):
+        if step_size > 0:
+            self.time_step = step_size
+        else:
+            self.time_step = 10  # default
+
+        if replay_speed > 0:
+            self.timing_mode = replay_speed
+        else:
+            self.timing_mode = 0  # as fast as possible
+
+        # correct the start time to account for speed change. Otherwise there will be jumps in the timeline
+        self.start_time = time.time() - (self.currentTime_EpSec / self.timing_mode if self.timing_mode > 0 else 0)
+        
