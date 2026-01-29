@@ -110,7 +110,11 @@ An image file (PNG format) is returned as the response.
 We provide access to different datasets. This section describes the datasets and their limitations.
 
 ## Sentinel Images
-TODO - we need to find a way to get these images efficiently.
+[Sentinel 2](https://dataspace.copernicus.eu/data-collections/copernicus-sentinel-data/sentinel-2) is an european multispectral earth observation mission. The data is freely available in high (3 day intervall) temporal resolution and medium (10m) spatial resolution.
+
+Multispectral images allows the observation of spectral bands outside the commonly used red-green-blue (RGB) color space. This allows the analysis of features not visible in RGB images. The example below shows a landscape in RGB (left) and false color infrared (right). It is almost impossible to see the river in the RGB image while it is clearly visible in the false color infrared image.
+
+<img src="fig/rgb_and_multispectral_example.png" alt="Sentinel image example" width="800">
 
 ## Mapbox Static Images
 
