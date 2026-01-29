@@ -41,11 +41,11 @@ class WebGuiConnector:
     def handle_commands(self, command: str, parameters: dict):
         # check if there's a status in the command
         if command == 'start':
-            self.start_simulation()
+            self.start_simulation(parameters)
         elif command == 'pause':
-            self.pause_simulation()
+            self.pause_simulation(parameters)
         elif command == 'stop':
-            self.reset_simulation()
+            self.reset_simulation(parameters)
         
         
 
@@ -83,24 +83,24 @@ class WebGuiConnector:
         return resp.json()
     
 
-    def start_simulation(self):
+    def start_simulation(self, parameters):
         print("Starting simulation...")
         dispatcher.send(
             signal=TOPIC_SIMULATION_COMMAND,
             sender=self,
-            data={'command': 'start'},
+            data={'command': 'start', 'parameters': parameters},
         )
 
 
-    def pause_simulation(self):
+    def pause_simulation(self, parameters):
         print("Pausing simulation...")
         dispatcher.send(
             signal=TOPIC_SIMULATION_COMMAND,
             sender=self,
-            data={'command': 'pause'},
+            data={'command': 'pause', 'parameters': parameters},
         )
 
-    def reset_simulation(self):
+    def reset_simulation(self, parameters):
         print("Resetting simulation...")
         dispatcher.send(
             signal=TOPIC_SIMULATION_COMMAND,
