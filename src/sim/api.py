@@ -4,6 +4,7 @@ import base64
 import numpy as np
 from ImagingProviders.sentinel_provider import SentinelProvider
 from ImagingProviders.mapbox_provider import MapboxlProvider
+from fastapi.responses import StreamingResponse
 
 api = FastAPI()
 
@@ -38,16 +39,17 @@ async def get_metrics():
 @api.get("/data/current/image/sentinel")
 async def get_sentinel_image():
     data = getattr(api.state, "shared_data", {}).get("satellite_position", None)
+    timestamp = getattr(api.state, "shared_data", {}).get("last_updated", None)
     # if data is none return an error
     if data is None:
-        raise HTTPException(status_code=500, detail="No image data available")
+        raise HTTPException(status_code=500, detail="Error fetching satellite position from shared data - is the simulator running?")
     
     try:
-        data = sentinel.get_single_image_lon_lat(data[0], data[1], "2023-06-01/2023-06-30")
+        png = sentinel.get_single_image_lon_lat(data[0], data[1], timestamp, data_type="png")
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error fetching Sentinel image: " + str(e))
-    image = serialize_xarray_dataset(data["image"])
-    return image
+    #image = serialize_xarray_dataset(data["image"]) # this was used befor we returned a png
+    return StreamingResponse(png, media_type="image/png")
 
 @api.get("/data/current/image/mapbox")
 async def get_mapbox_image(

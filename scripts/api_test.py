@@ -7,6 +7,8 @@ import xarray as xr
 import base64
 import numpy as np
 import io
+from PIL import Image
+from io import BytesIO
 
 def show_image(image_data):
     def scale_rgb(image_array):
@@ -48,7 +50,7 @@ def show_image(image_data):
     print("Displaying images...")
     plt.show()
 
-def test_sentinel():
+def test_sentinel_old():
     response = requests.get("http://localhost:9005/data/current/image/sentinel")
 
     # check whether the request returned an error
@@ -78,18 +80,8 @@ def test_sentinel():
     show_image(image_xr)
 
 def test_mapbox():
-    # get teh satellite position from the api
-    """
-    @api.get("/data/current/position")
-async def get_metrics():
-    # We access the shared data that the orchestrator will inject
-    data = getattr(api.state, "shared_data", {})
-    return {
-        "lon-lat-alt": data.get("satellite_position", [0, 0, 0]),
-        "timestamp": data.get("last_updated", 0)
-    }
-    
-    """
+    # get the satellite position from the api
+
     position = requests.get("http://localhost:9005/data/current/position").json()
     lon = position["lon-lat-alt"][0]
     lat = position["lon-lat-alt"][1]
@@ -120,6 +112,52 @@ async def get_metrics():
     plt.axis('off')
     plt.show()
 
+def test_sentinel():
+    response = requests.get("http://localhost:9005/data/current/image/sentinel")
+
+    if response.status_code == 200:
+        # Convert the raw bytes back into a PIL Image
+        img = Image.open(BytesIO(response.content))
+        img.show()  # This opens your default OS image viewer
+    else:
+        print(f"Error: Received status code {response.status_code}")
+        print(f"Response: {response.text}")
+
+def mapbox_sentinel_test():
+    # sentinel image
+    response = requests.get("http://localhost:9005/data/current/image/sentinel")
+
+    if response.status_code != 200:
+        print(f"Error: Received status code {response.status_code}")
+        print(f"Response: {response.text}")
+        return
+    sentinel_img = mpimg.imread(io.BytesIO(response.content), format='PNG')
+
+    position = requests.get("http://localhost:9005/data/current/position").json()
+    params = {"lat": position["lon-lat-alt"][1], "lon": position["lon-lat-alt"][0] }
+    response = requests.get("http://localhost:9005/data/current/image/mapbox", params=params)
+
+    # check whether the request returned an error
+    if response.status_code != 200:
+        print(f"Error: Received status code {response.status_code}")
+        print(f"Response: {response.text}")
+        return
+    mapbox_image = mpimg.imread(io.BytesIO(response.content), format='PNG')
+
+    # show both images side by side
+    fig, ax = plt.subplots(1, 2, figsize=(16, 8))
+    ax[0].imshow(sentinel_img)
+    ax[0].set_title("Sentinel Image")
+    ax[0].axis('off')
+    ax[1].imshow(mapbox_image)
+    ax[1].set_title("Mapbox Image")
+    ax[1].axis('off')
+    plt.show()
+    
+
+    # mapbox image
+
 if __name__ == "__main__":
-    test_sentinel()
+    #test_sentinel()
     #test_mapbox()
+    mapbox_sentinel_test()
